@@ -28,10 +28,10 @@ return new class extends Migration
 
         if ($driver === 'pgsql') {
             // For PostgreSQL: Create new enum with additional value
-            DB::statement("CREATE TYPE status_new AS ENUM('Draft', 'Awaiting Payment', 'Scheduled', 'Active', 'Set Down', 'Completed', 'Cancelled')");
-            DB::statement("ALTER TABLE events ALTER COLUMN status TYPE status_new USING status::text::status_new");
-            DB::statement("DROP TYPE status");
-            DB::statement("ALTER TYPE status_new RENAME TO status");
+            DB::statement("CREATE TYPE events_status_enum_new AS ENUM('Draft', 'Awaiting Payment', 'Scheduled', 'Active', 'Set Down', 'Completed', 'Cancelled')");
+            DB::statement("ALTER TABLE events ALTER COLUMN status TYPE events_status_enum_new USING status::text::events_status_enum_new");
+            DB::statement("DROP TYPE events_status_enum");
+            DB::statement("ALTER TYPE events_status_enum_new RENAME TO events_status_enum");
         } elseif ($driver === 'mysql') {
             DB::statement("ALTER TABLE events MODIFY COLUMN status ENUM('Draft', 'Awaiting Payment', 'Scheduled', 'Active', 'Set Down', 'Completed', 'Cancelled') DEFAULT 'Draft'");
         }
@@ -51,10 +51,10 @@ return new class extends Migration
 
         if ($driver === 'pgsql') {
             // For PostgreSQL: Recreate enum without 'Awaiting Payment'
-            DB::statement("CREATE TYPE status_old AS ENUM('Draft', 'Scheduled', 'Active', 'Set Down', 'Completed', 'Cancelled')");
-            DB::statement("ALTER TABLE events ALTER COLUMN status TYPE status_old USING status::text::status_old");
-            DB::statement("DROP TYPE status");
-            DB::statement("ALTER TYPE status_old RENAME TO status");
+            DB::statement("CREATE TYPE events_status_enum_old AS ENUM('Draft', 'Scheduled', 'Active', 'Set Down', 'Completed', 'Cancelled')");
+            DB::statement("ALTER TABLE events ALTER COLUMN status TYPE events_status_enum_old USING status::text::events_status_enum_old");
+            DB::statement("DROP TYPE events_status_enum");
+            DB::statement("ALTER TYPE events_status_enum_old RENAME TO events_status_enum");
         } elseif ($driver === 'mysql') {
             DB::statement("ALTER TABLE events MODIFY COLUMN status ENUM('Draft', 'Scheduled', 'Active', 'Set Down', 'Completed', 'Cancelled') DEFAULT 'Draft'");
         }
