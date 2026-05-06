@@ -1,0 +1,72 @@
+services:
+  # 1. Laravel Web Application
+  - type: web
+    name: grey-apple-ims
+    env: docker
+    plan: starter # Paid plan required for Disks
+    region: oregon # Specifying a region often fixes sync issues
+    
+    disk:
+      name: uploads
+      mountPath: /var/www/html/storage/app/public
+      sizeGB: 1
+
+    envVars:
+      - key: APP_NAME
+        value: "grey-apple-ims"
+      - key: APP_ENV
+        value: production
+      - key: APP_KEY
+        generateValue: true
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_URL
+        value: "https://grey-apple-ims.onrender.com"
+      - key: LOG_CHANNEL
+        value: errorlog
+      - key: LOG_LEVEL
+        value: error
+      - key: SESSION_DRIVER
+        value: file
+      - key: FILESYSTEM_DISK
+        value: public
+      - key: CACHE_STORE
+        value: file
+        
+      # Database Connection
+      - key: DB_CONNECTION
+        value: mysql
+      - key: DB_HOST
+        value: mysql-db # Internal hostname of the service below
+      - key: DB_PORT
+        value: "3306"
+      - key: DB_DATABASE
+        value: laravel_db
+      - key: DB_USERNAME
+        value: laravel_user
+      - key: DB_PASSWORD
+        fromService:
+          type: pserv
+          name: mysql-db
+          envVarKey: MYSQL_PASSWORD
+
+  # 2. MySQL Database Service
+  - type: pserv
+    name: mysql-db
+    env: image
+    plan: starter # Paid plan required for Private Services
+    image:
+      imagePath: mysql:8.0
+    disk:
+      name: mysql-data
+      mountPath: /var/lib/mysql
+      sizeGB: 5
+    envVars:
+      - key: MYSQL_ROOT_PASSWORD
+        generateValue: true
+      - key: MYSQL_DATABASE
+        value: laravel_db
+      - key: MYSQL_USER
+        value: laravel_user
+      - key: MYSQL_PASSWORD
+        generateValue: true

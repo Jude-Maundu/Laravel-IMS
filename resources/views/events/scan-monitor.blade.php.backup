@@ -1,0 +1,259 @@
+@extends('layouts.app')
+@section('title', 'Scan Session — ' . $event->name)
+@section('page-title', 'Events')
+
+@section('content')
+
+{{-- DISPATCH WIZARD MODAL --}}
+<x-dispatch-wizard-modal :event="$event" :scanSession="$scanSession" :qrCodeSvg="$qrCodeSvg" />
+
+{{-- BREADCRUMB --}}
+<div class="wiz-breadcrumb">
+  <a href="{{ route('events.show', $event) }}" class="wiz-back-link">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M10 3L6 8l4 5"/></svg>
+    {{ $event->name }}
+  </a>
+  <span class="wiz-bc-sep">/</span>
+  <span class="wiz-bc-current">Scan Session</span>
+</div>
+
+{{-- FLASH --}}
+@if(session('success'))
+  <div class="ev-flash ev-flash-success">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 8l2 2 5-5"/><circle cx="8" cy="8" r="6.5"/></svg>
+    {{ session('success') }}
+  </div>
+@endif
+
+{{-- HEADER --}}
+<div class="scan-monitor-header">
+  <div>
+    <h1 style="font-size: 18px; font-weight: 700; color: #0f0f0f; margin: 0 0 6px 0;">{{ $event->name }}</h1>
+    <div style="display: flex; gap: 10px; align-items: center;">
+      <span class="disp-ref-badge">{{ $dispatchRef ?? 'DISP-2026-000' }}</span>
+      <span class="scan-countdown" id="countdown-timer">--:--:--</span>
+    </div>
+  </div>
+  <div style="display: flex; gap: 10px; align-items: center;">
+    <button onclick="extendSession()" class="evsh-btn-outline" id="extend-btn">
+      Extend Session (+4hrs)
+    </button>
+    <form method="POST" action="{{ route('events.scan.cancel', [$event, $scanSession]) }}" style="display:inline" onsubmit="return confirm('Cancel this scan session?')">
+      @csrf
+      <button type="submit" class="evsh-btn-outline" style="border-color: #f5c0c0; color: #CC0000;">
+        Cancel Session
+      </button>
+    </form>
+  </div>
+</div>
+
+{{-- STEP 1: PRINT OR SHARE --}}
+<div class="scan-step-card">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+    <div class="scan-step-num">1</div>
+    <h2 style="font-size: 14px; font-weight: 700; color: #0f0f0f; margin: 0;">Print or Share</h2>
+  </div>
+  <div style="display: flex; gap: 12px;">
+    <a href="{{ route('events.packing-list.dispatch', [$event, $scanSession]) }}" target="_blank" class="evsh-btn-outline">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="2" width="12" height="4"/><path d="M2 6v6h12V6"/><path d="M5 10h6"/></svg>
+      Print Packing List
+    </a>
+    <a href="https://wa.me/?text={{ urlencode('Grey Apple IMS — Scan session for ' . $event->name . ' is ready. Open on your phone: ' . config('app.url') . '/scan/' . $scanSession->session_token) }}" target="_blank" class="evsh-btn-outline" style="border-color: #25D366; color: #25D366;">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8 8 0 100 16 8 8 0 000-16zm.2 11.8c-.5 0-1-.1-1.4-.3l-1.6.5.5-1.5c-.3-.5-.5-1-.5-1.5 0-1.7 1.4-3 3-3s3 1.3 3 3-1.3 3-3 3z"/></svg>
+      Share via WhatsApp
+    </a>
+  </div>
+</div>
+
+{{-- STEP 2: SESSION QR --}}
+<div class="scan-step-card">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+    <div class="scan-step-num">2</div>
+    <h2 style="font-size: 14px; font-weight: 700; color: #0f0f0f; margin: 0;">Session QR Code</h2>
+  </div>
+  <div class="scan-qr-container">
+    <div style="background: #fff; border: 2px solid #ece8e3; border-radius: 12px; padding: 20px; display: inline-block;">
+      {!! QrCode::format('svg')->size(220)->errorCorrection('H')->generate(config('app.url') . '/scan/' . $scanSession->session_token) !!}
+    </div>
+    <p style="font-size: 11px; color: #a09890; margin: 12px 0 0 0; font-family: 'Courier New', monospace;">
+      Session Token: {{ $scanSession->session_token }}
+    </p>
+    <div id="session-status" class="scan-status-indicator" style="margin-top: 12px; padding: 8px 12px; border-radius: 6px; font-size: 12px; background: #faeeda; color: #854F0B; text-align: center;">
+      Waiting for first scan...
+    </div>
+  </div>
+</div>
+
+{{-- STEP 3: LIVE PROGRESS --}}
+<div class="scan-step-card">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+    <div class="scan-step-num">3</div>
+    <h2 style="font-size: 14px; font-weight: 700; color: #0f0f0f; margin: 0;">Live Progress</h2>
+  </div>
+  <div>
+    <div class="scan-progress-bar-wrapper">
+      <div class="scan-progress-bar" id="progress-bar" style="width: 0%"></div>
+    </div>
+    <div style="text-align: center; margin-top: 14px;">
+      <div style="font-size: 32px; font-weight: 700; color: #0f0f0f;" id="progress-count">0 of {{ $event->eventItems->sum('quantity_requested') }}</div>
+      <div style="font-size: 11px; color: #a09890; margin-top: 4px;">items scanned</div>
+    </div>
+    <div class="scan-recent-list" id="recent-scans" style="margin-top: 20px;">
+      <p style="font-size: 11px; color: #b0a8a0; text-align: center;">No items scanned yet.</p>
+    </div>
+
+    {{-- Per-Item Progress Breakdown --}}
+    <div class="scan-item-breakdown" id="item-breakdown" style="margin-top: 24px;">
+      <div class="scan-breakdown-title">Item Progress</div>
+      <div id="breakdown-list">
+        @foreach($event->eventItems as $eventItem)
+        <div class="scan-breakdown-row" id="item-row-{{ $eventItem->item_id }}">
+          <div class="scan-breakdown-name">
+            {{ $eventItem->item->name }}
+          </div>
+          <div class="scan-breakdown-bar-wrap">
+            <div class="scan-breakdown-bar"
+                 id="item-bar-{{ $eventItem->item_id }}"
+                 style="width:0%">
+            </div>
+          </div>
+          <div class="scan-breakdown-count"
+               id="item-count-{{ $eventItem->item_id }}">
+            0 / {{ $eventItem->quantity_requested }}
+          </div>
+          <div class="scan-breakdown-status"
+               id="item-status-{{ $eventItem->item_id }}">
+          </div>
+        </div>
+        @endforeach
+      </div>
+    </div>
+  </div>
+</div>
+
+{{-- SWITCH TO MANUAL --}}
+<div style="text-align: center; margin-top: 24px; padding-top: 24px; border-top: 1px solid #ece8e3;">
+  <p style="font-size: 12px; color: #a09890; margin: 0 0 10px 0;">Having trouble scanning?</p>
+  <a href="{{ route('events.dispatch.manual', $event) }}" class="evsh-btn-outline" style="border-color: #CC0000; color: #CC0000;">
+    Switch to Manual Dispatch
+  </a>
+</div>
+
+<script>
+// Countdown timer
+let expiresAt = new Date("{{ $scanSession->expires_at->toISOString() }}");
+
+function updateCountdown() {
+  const now = new Date();
+  const diff = expiresAt - now;
+
+  if (diff <= 0) {
+    document.getElementById('countdown-timer').textContent = 'EXPIRED';
+    document.getElementById('countdown-timer').style.color = '#CC0000';
+    return;
+  }
+
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+  document.getElementById('countdown-timer').textContent =
+    String(hours).padStart(2, '0') + ':' +
+    String(minutes).padStart(2, '0') + ':' +
+    String(seconds).padStart(2, '0');
+}
+
+setInterval(updateCountdown, 1000);
+updateCountdown();
+
+// Extend session
+function extendSession() {
+  const btn = document.getElementById('extend-btn');
+  btn.disabled = true;
+  btn.textContent = 'Extending...';
+
+  fetch("{{ route('events.scan.extend', [$event, $scanSession]) }}", {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+    }
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      expiresAt = new Date(data.expires_at);
+      updateCountdown();
+      btn.textContent = 'Extended (+4hrs)';
+      setTimeout(() => {
+        btn.textContent = 'Extend Session (+4hrs)';
+        btn.disabled = false;
+      }, 2000);
+    }
+  })
+  .catch(() => {
+    btn.textContent = 'Failed';
+    btn.disabled = false;
+  });
+}
+
+// Poll progress every 5 seconds
+function pollProgress() {
+  fetch("{{ route('api.scan.progress', [$event, $scanSession]) }}")
+    .then(res => res.json())
+    .then(data => {
+      const percentage = data.percentage || 0;
+      document.getElementById('progress-bar').style.width = percentage + '%';
+      document.getElementById('progress-count').textContent = data.scanned_count + ' of ' + data.total_pieces;
+
+      if (data.scanned_count > 0) {
+        document.getElementById('session-status').textContent = 'Session Active';
+        document.getElementById('session-status').style.background = '#eaf3de';
+        document.getElementById('session-status').style.color = '#3B6D11';
+      }
+
+      // Update recent scans
+      if (data.recent_scans && data.recent_scans.length > 0) {
+        const list = data.recent_scans.map(scan =>
+          `<div style="padding: 8px; border-bottom: 1px solid #f8f6f3; font-size: 11px;">
+            <span style="font-weight: 600; color: #0f0f0f;">${scan.unique_code}</span> —
+            <span style="color: #5c5550;">${scan.item_name}</span> —
+            <span style="color: #a09890;">${scan.scanned_at}</span>
+          </div>`
+        ).join('');
+        document.getElementById('recent-scans').innerHTML = list;
+      }
+
+      // Update per-item progress breakdown
+      if (data.item_progress) {
+        data.item_progress.forEach(function(item) {
+          var countEl  = document.getElementById('item-count-' + item.item_id);
+          var barEl    = document.getElementById('item-bar-'   + item.item_id);
+          var statusEl = document.getElementById('item-status-' + item.item_id);
+          var rowEl    = document.getElementById('item-row-'   + item.item_id);
+
+          if (countEl) countEl.textContent = item.scanned + ' / ' + item.required;
+
+          if (barEl) {
+            var pct = item.required > 0 ? (item.scanned / item.required) * 100 : 0;
+            barEl.style.width = pct + '%';
+          }
+
+          if (statusEl) {
+            statusEl.textContent  = item.complete ? '✓' : '';
+            statusEl.style.color  = item.complete ? '#166534' : '';
+          }
+
+          if (rowEl && item.complete) {
+            rowEl.style.opacity = '0.6';
+          }
+        });
+      }
+    });
+}
+
+setInterval(pollProgress, 5000);
+pollProgress();
+</script>
+
+@endsection
