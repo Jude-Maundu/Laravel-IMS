@@ -15,9 +15,11 @@ return new class extends Migration
         $driver = Schema::getConnection()->getDriverName();
 
         if ($driver === 'pgsql') {
-            // For PostgreSQL: Add new value to existing enum type
-            // Laravel creates enum types as table_column_enum
-            DB::statement("ALTER TYPE event_items_return_destination_enum ADD VALUE 'site-to-site'");
+            // For PostgreSQL: Use a new enum type name instead of assuming the existing type name.
+            DB::statement("CREATE TYPE IF NOT EXISTS return_destination_new_20260414 AS ENUM('warehouse', 'cleaning', 'repair', 'site-to-site')");
+            DB::statement("ALTER TABLE event_items ALTER COLUMN return_destination TYPE return_destination_new_20260414 USING return_destination::text::return_destination_new_20260414");
+            DB::statement("DROP TYPE IF EXISTS event_items_return_destination_enum");
+            DB::statement("ALTER TYPE return_destination_new_20260414 RENAME TO event_items_return_destination_enum");
         } elseif ($driver === 'mysql') {
             // For MySQL: Modify column enum
             DB::statement("ALTER TABLE event_items MODIFY COLUMN return_destination ENUM('warehouse', 'cleaning', 'repair', 'site-to-site') NULL");
@@ -32,11 +34,10 @@ return new class extends Migration
         $driver = Schema::getConnection()->getDriverName();
 
         if ($driver === 'pgsql') {
-            // For PostgreSQL: Recreate enum without the added value
-            DB::statement("CREATE TYPE event_items_return_destination_enum_old AS ENUM('warehouse', 'cleaning', 'repair')");
-            DB::statement("ALTER TABLE event_items ALTER COLUMN return_destination TYPE event_items_return_destination_enum_old USING return_destination::text::event_items_return_destination_enum_old");
-            DB::statement("DROP TYPE event_items_return_destination_enum");
-            DB::statement("ALTER TYPE event_items_return_destination_enum_old RENAME TO event_items_return_destination_enum");
+            DB::statement("CREATE TYPE IF NOT EXISTS return_destination_old_20260414 AS ENUM('warehouse', 'cleaning', 'repair')");
+            DB::statement("ALTER TABLE event_items ALTER COLUMN return_destination TYPE return_destination_old_20260414 USING return_destination::text::return_destination_old_20260414");
+            DB::statement("DROP TYPE IF EXISTS event_items_return_destination_enum");
+            DB::statement("ALTER TYPE return_destination_old_20260414 RENAME TO event_items_return_destination_enum");
         } elseif ($driver === 'mysql') {
             // For MySQL: Revert enum
             DB::statement("ALTER TABLE event_items MODIFY COLUMN return_destination ENUM('warehouse', 'cleaning', 'repair') NULL");
