@@ -16,7 +16,7 @@ return new class extends Migration
 
         if ($driver === 'pgsql') {
             // For PostgreSQL: Use a new enum type name instead of assuming the existing type name.
-            DB::statement("CREATE TYPE IF NOT EXISTS return_destination_new_20260414 AS ENUM('warehouse', 'cleaning', 'repair', 'site-to-site')");
+            DB::statement("CREATE TYPE return_destination_new_20260414 AS ENUM('warehouse', 'cleaning', 'repair', 'site-to-site')");
             DB::statement("ALTER TABLE event_items ALTER COLUMN return_destination TYPE return_destination_new_20260414 USING return_destination::text::return_destination_new_20260414");
             DB::statement("DROP TYPE IF EXISTS event_items_return_destination_enum");
             DB::statement("ALTER TYPE return_destination_new_20260414 RENAME TO event_items_return_destination_enum");
@@ -34,7 +34,7 @@ return new class extends Migration
         $driver = Schema::getConnection()->getDriverName();
 
         if ($driver === 'pgsql') {
-            DB::statement("CREATE TYPE IF NOT EXISTS return_destination_old_20260414 AS ENUM('warehouse', 'cleaning', 'repair')");
+            DB::statement("CREATE TYPE return_destination_old_20260414 AS ENUM('warehouse', 'cleaning', 'repair')");
             DB::statement("ALTER TABLE event_items ALTER COLUMN return_destination TYPE return_destination_old_20260414 USING return_destination::text::return_destination_old_20260414");
             DB::statement("DROP TYPE IF EXISTS event_items_return_destination_enum");
             DB::statement("ALTER TYPE return_destination_old_20260414 RENAME TO event_items_return_destination_enum");
