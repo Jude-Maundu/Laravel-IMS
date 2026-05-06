@@ -24,7 +24,17 @@ return new class extends Migration
         });
         
         // Use raw SQL to update the enum
-        DB::statement("ALTER TABLE events MODIFY COLUMN status ENUM('Draft', 'Awaiting Payment', 'Scheduled', 'Active', 'Set Down', 'Completed', 'Cancelled') DEFAULT 'Draft'");
+        $driver = Schema::getConnection()->getDriverName();
+
+        if ($driver === 'pgsql') {
+            // For PostgreSQL: Create new enum with additional value
+            DB::statement("CREATE TYPE status_new AS ENUM('Draft', 'Awaiting Payment', 'Scheduled', 'Active', 'Set Down', 'Completed', 'Cancelled')");
+            DB::statement("ALTER TABLE events ALTER COLUMN status TYPE status_new USING status::text::status_new");
+            DB::statement("DROP TYPE status");
+            DB::statement("ALTER TYPE status_new RENAME TO status");
+        } elseif ($driver === 'mysql') {
+            DB::statement("ALTER TABLE events MODIFY COLUMN status ENUM('Draft', 'Awaiting Payment', 'Scheduled', 'Active', 'Set Down', 'Completed', 'Cancelled') DEFAULT 'Draft'");
+        }
     }
 
     /**
@@ -37,6 +47,16 @@ return new class extends Migration
             $table->dropColumn(['payment_status', 'amount_due', 'customer_phone', 'transaction_id', 'customer_id']);
         });
         
-        DB::statement("ALTER TABLE events MODIFY COLUMN status ENUM('Draft', 'Scheduled', 'Active', 'Set Down', 'Completed', 'Cancelled') DEFAULT 'Draft'");
+        $driver = Schema::getConnection()->getDriverName();
+
+        if ($driver === 'pgsql') {
+            // For PostgreSQL: Recreate enum without 'Awaiting Payment'
+            DB::statement("CREATE TYPE status_old AS ENUM('Draft', 'Scheduled', 'Active', 'Set Down', 'Completed', 'Cancelled')");
+            DB::statement("ALTER TABLE events ALTER COLUMN status TYPE status_old USING status::text::status_old");
+            DB::statement("DROP TYPE status");
+            DB::statement("ALTER TYPE status_old RENAME TO status");
+        } elseif ($driver === 'mysql') {
+            DB::statement("ALTER TABLE events MODIFY COLUMN status ENUM('Draft', 'Scheduled', 'Active', 'Set Down', 'Completed', 'Cancelled') DEFAULT 'Draft'");
+        }
     }
 };

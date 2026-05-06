@@ -12,8 +12,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Modify the enum to include 'site-to-site'
-        DB::statement("ALTER TABLE event_items MODIFY COLUMN return_destination ENUM('warehouse', 'cleaning', 'repair', 'site-to-site') NULL");
+        $driver = Schema::getConnection()->getDriverName();
+
+        if ($driver === 'pgsql') {
+            // For PostgreSQL: Add new value to existing enum type
+            DB::statement("ALTER TYPE return_destination ADD VALUE 'site-to-site'");
+        } elseif ($driver === 'mysql') {
+            // For MySQL: Modify column enum
+            DB::statement("ALTER TABLE event_items MODIFY COLUMN return_destination ENUM('warehouse', 'cleaning', 'repair', 'site-to-site') NULL");
+        }
     }
 
     /**
@@ -21,7 +28,17 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // Revert back to original enum values
-        DB::statement("ALTER TABLE event_items MODIFY COLUMN return_destination ENUM('warehouse', 'cleaning', 'repair') NULL");
+        $driver = Schema::getConnection()->getDriverName();
+
+        if ($driver === 'pgsql') {
+            // For PostgreSQL: Recreate enum without the added value
+            DB::statement("CREATE TYPE return_destination_old AS ENUM('warehouse', 'cleaning', 'repair')");
+            DB::statement("ALTER TABLE event_items ALTER COLUMN return_destination TYPE return_destination_old USING return_destination::text::return_destination_old");
+            DB::statement("DROP TYPE return_destination");
+            DB::statement("ALTER TYPE return_destination_old RENAME TO return_destination");
+        } elseif ($driver === 'mysql') {
+            // For MySQL: Revert enum
+            DB::statement("ALTER TABLE event_items MODIFY COLUMN return_destination ENUM('warehouse', 'cleaning', 'repair') NULL");
+        }
     }
 };
