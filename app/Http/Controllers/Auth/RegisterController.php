@@ -30,10 +30,9 @@ class RegisterController extends Controller
             'password' => Hash::make($request->password),
         ]);
 
-        // Assign default role
-        if (\Spatie\Permission\Models\Role::where('name', 'Warehouse')->exists()) {
-            $user->assignRole('Warehouse');
-        }
+        // Assign default role - create if doesn't exist
+        $warehouseRole = \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'Warehouse']);
+        $user->assignRole($warehouseRole);
 
         Auth::login($user);
 

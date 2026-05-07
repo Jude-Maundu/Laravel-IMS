@@ -12,7 +12,16 @@ php artisan storage:link || true
 echo "Running migrations..."
 php artisan migrate --force || true
 
-# 3. Cache configurations, routes, and views for optimal performance
+# 3. Run database seeders (safe for production as they use firstOrCreate)
+echo "Running seeders..."
+php artisan db:seed --force || true
+
+# 4. Cache configurations, routes, and views for optimal performance
+echo "Caching configurations..."
+php artisan config:cache
+
+echo "Caching routes..."
+php artisan route:cache
 echo "Caching configurations..."
 php artisan config:cache
 
