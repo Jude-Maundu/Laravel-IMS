@@ -22,6 +22,11 @@ class ItemPiecesSeeder extends Seeder
         $shortCodeCounters = [];
 
         foreach ($items as $item) {
+            if (\App\Models\ItemPiece::where('item_id', $item->id)->exists()) {
+                $this->command->info("Skipping pieces for {$item->name} because item pieces already exist.");
+                continue;
+            }
+
             // Generate random total_pieces between 6 and 45
             $totalPieces = mt_rand(6, 45);
 

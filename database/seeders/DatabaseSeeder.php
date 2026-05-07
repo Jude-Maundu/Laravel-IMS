@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             RolePermissionSeeder::class,
             WarehouseRoleSeeder::class,
             UserSeeder::class,
+            CrewSeeder::class,
             InventorySeeder::class,
             OperationalItemsSeeder::class,
         ]);
